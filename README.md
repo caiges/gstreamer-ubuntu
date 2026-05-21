@@ -39,7 +39,7 @@ The workflow:
 
 - Builds the Docker image for pull requests and pushes.
 - Pushes images to GitHub Container Registry on the default branch and version
-  tags like `v1.2.3`.
+  tags like `1.2.3`.
 - Publishes images under `ghcr.io/caiges/gstreamer-ubuntu`.
 - Uses GitHub Actions cache for Docker build layers.
 
@@ -49,5 +49,5 @@ The workflow generates tags from the Git reference, including:
 
 - `latest` for the default branch.
 - Branch and pull request tags.
-- Semantic version tags from Git tags like `v1.2.3`.
+- Semantic version tags from Git tags like `1.2.3`.
 - SHA tags prefixed with `sha-`.
