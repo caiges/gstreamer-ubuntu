@@ -44,6 +44,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgles-dev \
     libglib2.0-dev \
     libgcrypt20-dev \
+    libgudev-1.0-dev \
     libharfbuzz-dev \
     libicu-dev \
     libjpeg-dev \
@@ -61,6 +62,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libswscale-dev \
     libsystemd-dev \
     libtasn1-6-dev \
+    libva-dev \
     libwayland-dev \
     libwebp-dev \
     libwoff-dev \
@@ -194,10 +196,14 @@ RUN curl -fsSL "https://gstreamer.freedesktop.org/src/gst-plugins-bad/gst-plugin
         -Dintrospection=disabled \
         -Dmpegtsmux=enabled \
         -Dnls=disabled \
+        -Dnvcodec=enabled \
         -Dopus=enabled \
+        -Dqsv=enabled \
         -Drtmp2=enabled \
         -Dsrt=enabled \
         -Dtests=disabled \
+        -Dudev=enabled \
+        -Dva=enabled \
         -Dvideoparsers=enabled \
         -Dwpe=enabled \
         -Dwpe_api=2.0 \
@@ -263,6 +269,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgpg-error0 \
     libgles2 \
     libglib2.0-0t64 \
+    libgudev-1.0-0 \
     libharfbuzz-icu0 \
     libharfbuzz0b \
     libicu78 \
@@ -281,6 +288,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libswscale9 \
     libsystemd0 \
     libtasn1-6 \
+    libva2 \
+    libva-drm2 \
     libwayland-client0 \
     libwayland-cursor0 \
     libwayland-egl1 \
@@ -292,6 +301,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxkbcommon0 \
     libxml2-16 \
     libxslt1.1 \
+    intel-media-va-driver \
+    libmfx-gen1.2 \
+    libvpl2 \
+    mesa-libgallium \
     xdg-dbus-proxy \
     && rm -rf /var/lib/apt/lists/*
 
@@ -327,6 +340,9 @@ RUN gst-inspect-1.0 wpesrc \
     && gst-inspect-1.0 h264timestamper \
     && gst-inspect-1.0 h265timestamper \
     && gst-inspect-1.0 x264enc \
+    && gst-inspect-1.0 va \
+    && gst-inspect-1.0 qsv \
+    && gst-inspect-1.0 nvcodec \
     && gst-inspect-1.0 avdec_h264 \
     && gst-inspect-1.0 avdec_h265 \
     && gst-inspect-1.0 avenc_aac \

@@ -1,10 +1,12 @@
 # GStreamer Ubuntu Runtime
 
-Docker image for a Ubuntu-based GStreamer runtime with WPE WebKit support.
+Docker image for a Ubuntu-based GStreamer runtime with WPE WebKit support and
+hardware video encoder plugins.
 
 The image builds GStreamer and selected plugins from source, along with libwpe,
 wpebackend-fdo, and WPE WebKit. The final runtime image includes a smoke check
-that verifies the expected GStreamer plugins are available.
+that verifies the expected GStreamer plugins are available, including VA-API,
+Intel Quick Sync Video, and NVIDIA NVCodec support.
 
 ## Build Locally
 
@@ -28,6 +30,27 @@ docker build \
 
 ```sh
 docker run --rm gstreamer-ubuntu gst-inspect-1.0 wpesrc
+docker run --rm gstreamer-ubuntu gst-inspect-1.0 va
+docker run --rm gstreamer-ubuntu gst-inspect-1.0 qsv
+docker run --rm gstreamer-ubuntu gst-inspect-1.0 nvcodec
+```
+
+## Hardware Access
+
+The image contains the GStreamer plugins and user-space runtimes needed for the
+supported GPU paths, but the host still has to expose the GPU devices.
+
+Intel, AMD, and Intel Quick Sync Video use VA-API/DRM:
+
+```sh
+docker run --rm --device /dev/dri:/dev/dri gstreamer-ubuntu gst-inspect-1.0 va
+docker run --rm --device /dev/dri:/dev/dri gstreamer-ubuntu gst-inspect-1.0 qsv
+```
+
+NVIDIA uses the NVIDIA container runtime:
+
+```sh
+docker run --rm --gpus all gstreamer-ubuntu gst-inspect-1.0 nvcodec
 ```
 
 ## GitHub Actions
