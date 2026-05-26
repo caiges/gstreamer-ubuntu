@@ -310,7 +310,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=source-build ${PREFIX} ${PREFIX}
 
-RUN gst-inspect-1.0 wpesrc \
+RUN export GST_REGISTRY=/tmp/gst-registry-build.bin \
+    && gst-inspect-1.0 wpesrc \
     && gst-inspect-1.0 capsfilter \
     && gst-inspect-1.0 queue \
     && gst-inspect-1.0 queue2 \
@@ -349,4 +350,6 @@ RUN gst-inspect-1.0 wpesrc \
     && gst-inspect-1.0 mpegtsmux \
     && gst-inspect-1.0 srtsink \
     && gst-inspect-1.0 flvmux \
-    && gst-inspect-1.0 rtmp2sink
+    && gst-inspect-1.0 rtmp2sink \
+    && rm -f /tmp/gst-registry-build.bin \
+    && rm -rf /root/.cache/gstreamer-1.0
