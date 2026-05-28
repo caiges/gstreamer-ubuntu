@@ -267,8 +267,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgbm1 \
     libgcrypt20 \
     libgpg-error0 \
+    libgl1-mesa-dri \
     libgles2 \
     libglib2.0-0t64 \
+    libglx-mesa0 \
     libgudev-1.0-0 \
     libharfbuzz-icu0 \
     libharfbuzz0b \
@@ -305,6 +307,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libmfx-gen1.2 \
     libvpl2 \
     mesa-libgallium \
+    mesa-vulkan-drivers \
     xdg-dbus-proxy \
     && rm -rf /var/lib/apt/lists/*
 
