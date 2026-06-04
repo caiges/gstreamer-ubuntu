@@ -5,7 +5,7 @@ ARG PREFIX=/opt/streamer-runtime
 ARG GSTREAMER_VERSION=1.28.2
 ARG LIBWPE_VERSION=1.16.2
 ARG WPEBACKEND_FDO_VERSION=1.16.1
-ARG WPEWEBKIT_VERSION=2.48.3
+ARG WPEWEBKIT_VERSION=2.50.2
 
 FROM ubuntu:${UBUNTU_VERSION} AS source-build
 
@@ -47,6 +47,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgudev-1.0-dev \
     libharfbuzz-dev \
     libicu-dev \
+    libinput-dev \
     libjpeg-dev \
     libjxl-dev \
     liblcms2-dev \
@@ -61,6 +62,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libswresample-dev \
     libswscale-dev \
     libsystemd-dev \
+    libudev-dev \
     libtasn1-6-dev \
     libva-dev \
     libwayland-dev \
@@ -112,6 +114,7 @@ RUN curl -fsSL "https://wpewebkit.org/releases/wpewebkit-${WPEWEBKIT_VERSION}.ta
         -DENABLE_BUBBLEWRAP_SANDBOX=OFF \
         -DENABLE_DOCUMENTATION=OFF \
         -DENABLE_GAMEPAD=OFF \
+        -DENABLE_WPE_PLATFORM=ON \
         -DENABLE_INTROSPECTION=OFF \
         -DENABLE_MEDIA_SOURCE=OFF \
         -DENABLE_MEDIA_STREAM=OFF \
@@ -120,7 +123,7 @@ RUN curl -fsSL "https://wpewebkit.org/releases/wpewebkit-${WPEWEBKIT_VERSION}.ta
         -DENABLE_VIDEO=OFF \
         -DENABLE_WEB_AUDIO=OFF \
         -DENABLE_WEB_CODECS=OFF \
-        -DENABLE_WEBGL=OFF \
+        -DENABLE_WEBGL=ON \
         -DENABLE_WEBGPU=OFF \
         -DENABLE_WEBDRIVER=OFF \
         -DENABLE_WEB_RTC=OFF \
@@ -207,6 +210,7 @@ RUN curl -fsSL "https://gstreamer.freedesktop.org/src/gst-plugins-bad/gst-plugin
         -Dvideoparsers=enabled \
         -Dwpe=enabled \
         -Dwpe_api=2.0 \
+        -Dwpe2=enabled \
     && meson compile -C build \
     && meson install -C build \
     && rm -rf /tmp/build/*
@@ -275,6 +279,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libharfbuzz-icu0 \
     libharfbuzz0b \
     libicu78 \
+    libinput10 \
     libjpeg-turbo8 \
     libjxl0.11 \
     liblcms2-2 \
@@ -289,6 +294,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libswresample6 \
     libswscale9 \
     libsystemd0 \
+    libudev1 \
     libtasn1-6 \
     libva2 \
     libva-drm2 \
@@ -314,7 +320,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=source-build ${PREFIX} ${PREFIX}
 
 RUN export GST_REGISTRY=/tmp/gst-registry-build.bin \
-    && gst-inspect-1.0 wpesrc \
+    && gst-inspect-1.0 wpevideosrc2 \
     && gst-inspect-1.0 capsfilter \
     && gst-inspect-1.0 queue \
     && gst-inspect-1.0 queue2 \

@@ -21,15 +21,15 @@ docker build \
   --build-arg UBUNTU_VERSION=26.04 \
   --build-arg GSTREAMER_VERSION=1.28.2 \
   --build-arg LIBWPE_VERSION=1.16.2 \
-  --build-arg WPEBACKEND_FDO_VERSION=1.16.0 \
-  --build-arg WPEWEBKIT_VERSION=2.48.3 \
+  --build-arg WPEBACKEND_FDO_VERSION=1.16.1 \
+  --build-arg WPEWEBKIT_VERSION=2.50.2 \
   -t gstreamer-ubuntu .
 ```
 
 ## Smoke Check
 
 ```sh
-docker run --rm gstreamer-ubuntu gst-inspect-1.0 wpesrc
+docker run --rm gstreamer-ubuntu gst-inspect-1.0 wpevideosrc2
 docker run --rm gstreamer-ubuntu gst-inspect-1.0 va
 docker run --rm gstreamer-ubuntu gst-inspect-1.0 qsv
 docker run --rm gstreamer-ubuntu gst-inspect-1.0 nvcodec
