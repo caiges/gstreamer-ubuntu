@@ -6,8 +6,10 @@ ARG GSTREAMER_VERSION=1.28.2
 ARG LIBWPE_VERSION=1.16.2
 ARG WPEBACKEND_FDO_VERSION=1.16.1
 ARG WPEWEBKIT_VERSION=2.50.2
+ARG ROCKCHIP_MPP_COMMIT=c08762ebfadeb4e986d2fed993bc7a54862d3ebe
+ARG GSTREAMER_ROCKCHIP_COMMIT=1bfbba0a70ec399e3364d399b3b70691f08f52fb
 
-FROM ubuntu:${UBUNTU_VERSION} AS source-build
+FROM ubuntu:${UBUNTU_VERSION} AS source-build-common
 
 ARG PREFIX
 ARG GSTREAMER_VERSION
@@ -185,7 +187,42 @@ RUN curl -fsSL "https://gstreamer.freedesktop.org/src/gst-plugins-good/gst-plugi
     && meson install -C build \
     && rm -rf /tmp/build/*
 
-RUN curl -fsSL "https://gstreamer.freedesktop.org/src/gst-plugins-bad/gst-plugins-bad-${GSTREAMER_VERSION}.tar.xz" \
+RUN curl -fsSL "https://gstreamer.freedesktop.org/src/gst-plugins-ugly/gst-plugins-ugly-${GSTREAMER_VERSION}.tar.xz" \
+    | tar -xJ --strip-components=1 \
+    && meson setup build . \
+        --prefix=${PREFIX} \
+        --libdir=lib \
+        --buildtype=release \
+        -Dauto_features=disabled \
+        -Ddoc=disabled \
+        -Dgpl=enabled \
+        -Dnls=disabled \
+        -Dtests=disabled \
+        -Dx264=enabled \
+    && meson compile -C build \
+    && meson install -C build \
+    && rm -rf /tmp/build/*
+
+RUN curl -fsSL "https://gstreamer.freedesktop.org/src/gst-libav/gst-libav-${GSTREAMER_VERSION}.tar.xz" \
+    | tar -xJ --strip-components=1 \
+    && meson setup build . \
+        --prefix=${PREFIX} \
+        --libdir=lib \
+        --buildtype=release \
+        -Ddoc=disabled \
+        -Dtests=disabled \
+    && meson compile -C build \
+    && meson install -C build \
+    && rm -rf /tmp/build/*
+
+FROM source-build-common AS source-build-amd64
+
+ARG PREFIX
+ARG GSTREAMER_VERSION
+ARG TARGETARCH
+
+RUN test "${TARGETARCH}" = amd64 \
+    && curl -fsSL "https://gstreamer.freedesktop.org/src/gst-plugins-bad/gst-plugins-bad-${GSTREAMER_VERSION}.tar.xz" \
     | tar -xJ --strip-components=1 \
     && meson setup build . \
         --prefix=${PREFIX} \
@@ -215,35 +252,75 @@ RUN curl -fsSL "https://gstreamer.freedesktop.org/src/gst-plugins-bad/gst-plugin
     && meson install -C build \
     && rm -rf /tmp/build/*
 
-RUN curl -fsSL "https://gstreamer.freedesktop.org/src/gst-plugins-ugly/gst-plugins-ugly-${GSTREAMER_VERSION}.tar.xz" \
+FROM source-build-common AS source-build-rockchip
+
+ARG PREFIX
+ARG GSTREAMER_VERSION
+ARG ROCKCHIP_MPP_COMMIT
+ARG GSTREAMER_ROCKCHIP_COMMIT
+ARG TARGETARCH
+
+RUN test "${TARGETARCH}" = arm64 \
+    && curl -fsSL "https://gstreamer.freedesktop.org/src/gst-plugins-bad/gst-plugins-bad-${GSTREAMER_VERSION}.tar.xz" \
     | tar -xJ --strip-components=1 \
     && meson setup build . \
         --prefix=${PREFIX} \
         --libdir=lib \
         --buildtype=release \
         -Dauto_features=disabled \
+        -Dcodectimestamper=enabled \
         -Ddoc=disabled \
-        -Dgpl=enabled \
+        -Dexamples=disabled \
+        -Dgl=enabled \
+        -Dintrospection=disabled \
+        -Dmpegtsmux=enabled \
         -Dnls=disabled \
+        -Dnvcodec=disabled \
+        -Dopus=enabled \
+        -Dqsv=disabled \
+        -Drtmp2=enabled \
+        -Dsrt=enabled \
         -Dtests=disabled \
-        -Dx264=enabled \
+        -Dudev=enabled \
+        -Dva=enabled \
+        -Dvideoparsers=enabled \
+        -Dwpe=enabled \
+        -Dwpe_api=2.0 \
+        -Dwpe2=enabled \
     && meson compile -C build \
     && meson install -C build \
     && rm -rf /tmp/build/*
 
-RUN curl -fsSL "https://gstreamer.freedesktop.org/src/gst-libav/gst-libav-${GSTREAMER_VERSION}.tar.xz" \
-    | tar -xJ --strip-components=1 \
+RUN curl -fsSL "https://github.com/rockchip-linux/mpp/archive/${ROCKCHIP_MPP_COMMIT}.tar.gz" \
+    | tar -xz --strip-components=1 \
+    && cmake -S . -B build -GNinja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=${PREFIX} \
+        -DCMAKE_INSTALL_LIBDIR=lib \
+        -DBUILD_SHARED_LIBS=ON \
+        -DBUILD_TEST=OFF \
+    && cmake --build build --parallel "$(nproc)" \
+    && cmake --install build \
+    && rm -rf /tmp/build/*
+
+# The archive has no Git metadata, but its Meson setup installs a hook.
+RUN curl -fsSL "https://github.com/yanyitech/gstreamer-rockchip/archive/${GSTREAMER_ROCKCHIP_COMMIT}.tar.gz" \
+    | tar -xz --strip-components=1 \
+    && mkdir -p .git/hooks \
     && meson setup build . \
         --prefix=${PREFIX} \
         --libdir=lib \
         --buildtype=release \
-        -Ddoc=disabled \
-        -Dtests=disabled \
+        -Dkmssrc=disabled \
+        -Drga=disabled \
+        -Drkximage=disabled \
+        -Drockchipmpp=enabled \
+        -Dvpxalphadec=disabled \
     && meson compile -C build \
     && meson install -C build \
     && rm -rf /tmp/build/*
 
-FROM ubuntu:${UBUNTU_VERSION}
+FROM ubuntu:${UBUNTU_VERSION} AS runtime-common
 
 ARG PREFIX
 
@@ -309,56 +386,40 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxkbcommon0 \
     libxml2-16 \
     libxslt1.1 \
-    intel-media-va-driver \
-    libmfx-gen1.2 \
-    libvpl2 \
     mesa-libgallium \
     mesa-vulkan-drivers \
     xdg-dbus-proxy \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=source-build ${PREFIX} ${PREFIX}
+COPY --chmod=0755 scripts/verify-plugins.sh /usr/local/bin/verify-plugins.sh
+COPY --chmod=0755 scripts/verify-rockchip-hardware.sh /usr/local/bin/verify-rockchip-hardware.sh
 
-RUN export GST_REGISTRY=/tmp/gst-registry-build.bin \
-    && gst-inspect-1.0 wpevideosrc2 \
-    && gst-inspect-1.0 capsfilter \
-    && gst-inspect-1.0 queue \
-    && gst-inspect-1.0 queue2 \
-    && gst-inspect-1.0 fakesink \
-    && gst-inspect-1.0 compositor \
-    && gst-inspect-1.0 audioconvert \
-    && gst-inspect-1.0 videoconvert \
-    && gst-inspect-1.0 videorate \
-    && gst-inspect-1.0 videoscale \
-    && gst-inspect-1.0 rtspsrc \
-    && gst-inspect-1.0 rtpbin \
-    && gst-inspect-1.0 rtpjitterbuffer \
-    && gst-inspect-1.0 udpsrc \
-    && gst-inspect-1.0 rtph264depay \
-    && gst-inspect-1.0 rtph265depay \
-    && gst-inspect-1.0 rtpmp4gdepay \
-    && gst-inspect-1.0 rtpmp4adepay \
-    && gst-inspect-1.0 rtppcmadepay \
-    && gst-inspect-1.0 rtppcmudepay \
-    && gst-inspect-1.0 rtpopusdepay \
-    && gst-inspect-1.0 aacparse \
-    && gst-inspect-1.0 opusparse \
-    && gst-inspect-1.0 alawdec \
-    && gst-inspect-1.0 mulawdec \
-    && gst-inspect-1.0 h264parse \
-    && gst-inspect-1.0 h265parse \
-    && gst-inspect-1.0 h264timestamper \
-    && gst-inspect-1.0 h265timestamper \
-    && gst-inspect-1.0 x264enc \
-    && gst-inspect-1.0 va \
-    && gst-inspect-1.0 qsv \
-    && gst-inspect-1.0 nvcodec \
-    && gst-inspect-1.0 avdec_h264 \
-    && gst-inspect-1.0 avdec_h265 \
-    && gst-inspect-1.0 avenc_aac \
-    && gst-inspect-1.0 mpegtsmux \
-    && gst-inspect-1.0 srtsink \
-    && gst-inspect-1.0 flvmux \
-    && gst-inspect-1.0 rtmp2sink \
-    && rm -f /tmp/gst-registry-build.bin \
+FROM runtime-common AS runtime-rockchip
+
+ARG PREFIX
+ARG TARGETARCH
+
+RUN test "${TARGETARCH}" = arm64
+
+COPY --from=source-build-rockchip ${PREFIX} ${PREFIX}
+
+RUN verify-plugins.sh rockchip \
+    && rm -rf /root/.cache/gstreamer-1.0
+
+FROM runtime-common AS runtime-amd64
+
+ARG PREFIX
+ARG TARGETARCH
+
+RUN test "${TARGETARCH}" = amd64 \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        intel-media-va-driver \
+        libmfx-gen1.2 \
+        libvpl2 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=source-build-amd64 ${PREFIX} ${PREFIX}
+
+RUN verify-plugins.sh amd64 \
     && rm -rf /root/.cache/gstreamer-1.0
