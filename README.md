@@ -5,7 +5,7 @@ WebKit support.
 
 - `runtime-amd64` includes VA-API, Intel Quick Sync Video, and NVIDIA NVCodec.
 - `runtime-rockchip` includes Rockchip Media Process Platform and the
-  `rockchipmpp` GStreamer plugin.
+  `rockchipmpp` GStreamer plugin, and librga 1.10.6.
 
 The Rockchip image targets arm64 RK3588-family boards with a vendor-compatible
 Linux 6.1 kernel. It is not a generic arm64 image for other boards or cloud
@@ -39,6 +39,7 @@ docker build \
 The source archives use these optional build arguments:
 
 ```text
+BUILD_JOBS=2
 UBUNTU_VERSION=26.04
 GSTREAMER_VERSION=1.28.2
 LIBWPE_VERSION=1.16.2
@@ -50,6 +51,32 @@ GSTREAMER_ROCKCHIP_COMMIT=1bfbba0a70ec399e3364d399b3b70691f08f52fb
 
 The Rockchip commits are immutable defaults. Override them only with another
 full commit hash.
+
+## librga packaging
+
+The Rockchip runtime includes the official GCC AArch64 `librga.so` artifact
+from [airockchip/librga](https://github.com/airockchip/librga/tree/2b32edcb97b601b25683e2941d888c8515da6d55),
+commit `2b32edcb97b601b25683e2941d888c8515da6d55`. Its SHA256 is
+`e150bda757fb5e8a649c429ec7cabaf851aa2a3be554ed494d5519e8790d943b`.
+This is the exact 1.10.6 library qualified with gateway-streamer on RK3588.
+The build downloads and verifies both the binary and its Apache-2.0 license.
+The license and provenance are installed under
+`/opt/streamer-runtime/share/licenses/librga`.
+
+`LIBRGA_COMMIT`, `LIBRGA_SHA256`, and `LIBRGA_LICENSE_SHA256` can be overridden
+together when qualifying a replacement. The binary retains its upstream
+SONAME, `librga.so`. It depends on glibc, libgcc, and libstdc++.
+
+The build checks loading and the five symbols used by the gateway compositor
+without accessing a GPU. Repeat that check in the final runtime:
+
+```sh
+docker run --rm gstreamer-ubuntu:rockchip verify-librga
+```
+
+This does not enable RGA inside `gstreamer-rockchip`; that plugin's
+`-Drga=disabled` setting is unchanged. The host must still provide compatible
+RGA hardware and kernel drivers for gateway-streamer compositing.
 
 ## Verify the plugin inventory
 

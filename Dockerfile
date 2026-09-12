@@ -9,6 +9,34 @@ ARG WPEWEBKIT_VERSION=2.50.2
 ARG ROCKCHIP_MPP_COMMIT=c08762ebfadeb4e986d2fed993bc7a54862d3ebe
 ARG GSTREAMER_ROCKCHIP_COMMIT=1bfbba0a70ec399e3364d399b3b70691f08f52fb
 
+# The official GCC AArch64 artifact matches the library qualified on RK3588.
+FROM ubuntu:${UBUNTU_VERSION} AS source-build-librga
+
+ARG PREFIX
+ARG TARGETARCH
+ARG LIBRGA_COMMIT=2b32edcb97b601b25683e2941d888c8515da6d55
+ARG LIBRGA_SHA256=e150bda757fb5e8a649c429ec7cabaf851aa2a3be554ed494d5519e8790d943b
+ARG LIBRGA_LICENSE_SHA256=58f1fdcee3211f839f749c1ed97ca87fd56d9d01d729bb74241eca9e2ac710bc
+
+RUN test "${TARGETARCH}" = arm64 \
+    && apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates curl gcc libc6-dev libstdc++6 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY scripts/verify-librga.c /tmp/verify-librga.c
+
+RUN mkdir -p "${PREFIX}/lib" "${PREFIX}/bin" "${PREFIX}/share/licenses/librga" \
+    && curl -fsSL "https://raw.githubusercontent.com/airockchip/librga/${LIBRGA_COMMIT}/libs/Linux/gcc-aarch64/librga.so" \
+        -o "${PREFIX}/lib/librga.so" \
+    && echo "${LIBRGA_SHA256}  ${PREFIX}/lib/librga.so" | sha256sum -c - \
+    && curl -fsSL "https://raw.githubusercontent.com/airockchip/librga/${LIBRGA_COMMIT}/COPYING" \
+        -o "${PREFIX}/share/licenses/librga/COPYING" \
+    && echo "${LIBRGA_LICENSE_SHA256}  ${PREFIX}/share/licenses/librga/COPYING" | sha256sum -c - \
+    && printf 'commit=%s\nsha256=%s\nartifact=libs/Linux/gcc-aarch64/librga.so\n' \
+        "${LIBRGA_COMMIT}" "${LIBRGA_SHA256}" > "${PREFIX}/share/licenses/librga/provenance" \
+    && gcc -O2 -Wall -Wextra -Werror /tmp/verify-librga.c -ldl -o "${PREFIX}/bin/verify-librga" \
+    && LD_LIBRARY_PATH="${PREFIX}/lib" "${PREFIX}/bin/verify-librga"
+
 FROM ubuntu:${UBUNTU_VERSION} AS source-build-common
 
 ARG PREFIX
@@ -16,6 +44,7 @@ ARG GSTREAMER_VERSION
 ARG LIBWPE_VERSION
 ARG WPEBACKEND_FDO_VERSION
 ARG WPEWEBKIT_VERSION
+ARG BUILD_JOBS=2
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PREFIX=${PREFIX}
@@ -92,7 +121,7 @@ RUN curl -fsSL "https://wpewebkit.org/releases/libwpe-${LIBWPE_VERSION}.tar.xz" 
         --prefix=${PREFIX} \
         --libdir=lib \
         --buildtype=release \
-    && meson compile -C build \
+    && meson compile -C build -j "${BUILD_JOBS}" \
     && meson install -C build \
     && rm -rf /tmp/build/*
 
@@ -102,7 +131,7 @@ RUN curl -fsSL "https://wpewebkit.org/releases/wpebackend-fdo-${WPEBACKEND_FDO_V
         --prefix=${PREFIX} \
         --libdir=lib \
         --buildtype=release \
-    && meson compile -C build \
+    && meson compile -C build -j "${BUILD_JOBS}" \
     && meson install -C build \
     && rm -rf /tmp/build/*
 
@@ -132,7 +161,7 @@ RUN curl -fsSL "https://wpewebkit.org/releases/wpewebkit-${WPEWEBKIT_VERSION}.ta
         -DENABLE_WEBXR=OFF \
         -DUSE_ATK=OFF \
         -DUSE_LIBBACKTRACE=OFF \
-    && cmake --build build --target install --parallel "$(nproc)" \
+    && cmake --build build --target install --parallel "${BUILD_JOBS}" \
     && rm -rf /tmp/build/*
 
 RUN curl -fsSL "https://gstreamer.freedesktop.org/src/gstreamer/gstreamer-${GSTREAMER_VERSION}.tar.xz" \
@@ -145,7 +174,7 @@ RUN curl -fsSL "https://gstreamer.freedesktop.org/src/gstreamer/gstreamer-${GSTR
         -Dexamples=disabled \
         -Dnls=disabled \
         -Dtests=disabled \
-    && meson compile -C build \
+    && meson compile -C build -j "${BUILD_JOBS}" \
     && meson install -C build \
     && rm -rf /tmp/build/*
 
@@ -161,7 +190,7 @@ RUN curl -fsSL "https://gstreamer.freedesktop.org/src/gst-plugins-base/gst-plugi
         -Dintrospection=disabled \
         -Dnls=disabled \
         -Dtests=disabled \
-    && meson compile -C build \
+    && meson compile -C build -j "${BUILD_JOBS}" \
     && meson install -C build \
     && rm -rf /tmp/build/*
 
@@ -183,7 +212,7 @@ RUN curl -fsSL "https://gstreamer.freedesktop.org/src/gst-plugins-good/gst-plugi
         -Drtsp=enabled \
         -Dtests=disabled \
         -Dudp=enabled \
-    && meson compile -C build \
+    && meson compile -C build -j "${BUILD_JOBS}" \
     && meson install -C build \
     && rm -rf /tmp/build/*
 
@@ -199,7 +228,7 @@ RUN curl -fsSL "https://gstreamer.freedesktop.org/src/gst-plugins-ugly/gst-plugi
         -Dnls=disabled \
         -Dtests=disabled \
         -Dx264=enabled \
-    && meson compile -C build \
+    && meson compile -C build -j "${BUILD_JOBS}" \
     && meson install -C build \
     && rm -rf /tmp/build/*
 
@@ -211,7 +240,7 @@ RUN curl -fsSL "https://gstreamer.freedesktop.org/src/gst-libav/gst-libav-${GSTR
         --buildtype=release \
         -Ddoc=disabled \
         -Dtests=disabled \
-    && meson compile -C build \
+    && meson compile -C build -j "${BUILD_JOBS}" \
     && meson install -C build \
     && rm -rf /tmp/build/*
 
@@ -248,7 +277,7 @@ RUN test "${TARGETARCH}" = amd64 \
         -Dwpe=enabled \
         -Dwpe_api=2.0 \
         -Dwpe2=enabled \
-    && meson compile -C build \
+    && meson compile -C build -j "${BUILD_JOBS}" \
     && meson install -C build \
     && rm -rf /tmp/build/*
 
@@ -287,7 +316,7 @@ RUN test "${TARGETARCH}" = arm64 \
         -Dwpe=enabled \
         -Dwpe_api=2.0 \
         -Dwpe2=enabled \
-    && meson compile -C build \
+    && meson compile -C build -j "${BUILD_JOBS}" \
     && meson install -C build \
     && rm -rf /tmp/build/*
 
@@ -299,7 +328,7 @@ RUN curl -fsSL "https://github.com/rockchip-linux/mpp/archive/${ROCKCHIP_MPP_COM
         -DCMAKE_INSTALL_LIBDIR=lib \
         -DBUILD_SHARED_LIBS=ON \
         -DBUILD_TEST=OFF \
-    && cmake --build build --parallel "$(nproc)" \
+    && cmake --build build --parallel "${BUILD_JOBS}" \
     && cmake --install build \
     && rm -rf /tmp/build/*
 
@@ -316,7 +345,7 @@ RUN curl -fsSL "https://github.com/yanyitech/gstreamer-rockchip/archive/${GSTREA
         -Drkximage=disabled \
         -Drockchipmpp=enabled \
         -Dvpxalphadec=disabled \
-    && meson compile -C build \
+    && meson compile -C build -j "${BUILD_JOBS}" \
     && meson install -C build \
     && rm -rf /tmp/build/*
 
@@ -398,12 +427,18 @@ FROM runtime-common AS runtime-rockchip
 
 ARG PREFIX
 ARG TARGETARCH
+ARG ROCKCHIP_PREFIX_SOURCE=source-build-rockchip
+LABEL org.streamology.gstreamer.prefix-source="${ROCKCHIP_PREFIX_SOURCE}"
 
-RUN test "${TARGETARCH}" = arm64
+RUN test "${TARGETARCH}" = arm64 \
+    && apt-get update && apt-get install -y --no-install-recommends libstdc++6 \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=source-build-rockchip ${PREFIX} ${PREFIX}
+COPY --from=source-build-librga ${PREFIX} ${PREFIX}
 
-RUN verify-plugins.sh rockchip \
+RUN verify-librga \
+    && verify-plugins.sh rockchip \
     && rm -rf /root/.cache/gstreamer-1.0
 
 FROM runtime-common AS runtime-amd64
