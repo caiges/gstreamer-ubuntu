@@ -100,6 +100,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libwebp-dev \
     libwoff-dev \
     libx264-dev \
+    libx265-dev \
     libxkbcommon-dev \
     libxml2-dev \
     libxslt1-dev \
@@ -111,6 +112,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     unifdef \
     wayland-protocols \
     xz-utils \
+    zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /tmp/build
@@ -205,11 +207,14 @@ RUN curl -fsSL "https://gstreamer.freedesktop.org/src/gst-plugins-good/gst-plugi
         -Ddoc=disabled \
         -Dexamples=disabled \
         -Dflv=enabled \
+        -Disomp4=enabled \
         -Dlaw=enabled \
+        -Dmatroska=enabled \
         -Dnls=disabled \
         -Drtp=enabled \
         -Drtpmanager=enabled \
         -Drtsp=enabled \
+        -Dsoup=enabled \
         -Dtests=disabled \
         -Dudp=enabled \
     && meson compile -C build -j "${BUILD_JOBS}" \
@@ -262,7 +267,9 @@ RUN test "${TARGETARCH}" = amd64 \
         -Ddoc=disabled \
         -Dexamples=disabled \
         -Dgl=enabled \
+        -Dgpl=enabled \
         -Dintrospection=disabled \
+        -Dmpegtsdemux=enabled \
         -Dmpegtsmux=enabled \
         -Dnls=disabled \
         -Dnvcodec=enabled \
@@ -277,6 +284,7 @@ RUN test "${TARGETARCH}" = amd64 \
         -Dwpe=enabled \
         -Dwpe_api=2.0 \
         -Dwpe2=enabled \
+        -Dx265=enabled \
     && meson compile -C build -j "${BUILD_JOBS}" \
     && meson install -C build \
     && rm -rf /tmp/build/*
@@ -301,7 +309,9 @@ RUN test "${TARGETARCH}" = arm64 \
         -Ddoc=disabled \
         -Dexamples=disabled \
         -Dgl=enabled \
+        -Dgpl=enabled \
         -Dintrospection=disabled \
+        -Dmpegtsdemux=enabled \
         -Dmpegtsmux=enabled \
         -Dnls=disabled \
         -Dnvcodec=disabled \
@@ -316,6 +326,7 @@ RUN test "${TARGETARCH}" = arm64 \
         -Dwpe=enabled \
         -Dwpe_api=2.0 \
         -Dwpe2=enabled \
+        -Dx265=enabled \
     && meson compile -C build -j "${BUILD_JOBS}" \
     && meson install -C build \
     && rm -rf /tmp/build/*
@@ -377,6 +388,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgbm1 \
     libgcrypt20 \
     libgpg-error0 \
+    glib-networking \
     libgl1-mesa-dri \
     libgles2 \
     libglib2.0-0t64 \
@@ -412,6 +424,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libwebpdemux2 \
     libwoff1 \
     libx264-165 \
+    libx265-215 \
     libxkbcommon0 \
     libxml2-16 \
     libxslt1.1 \

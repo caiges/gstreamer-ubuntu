@@ -83,6 +83,11 @@ RGA hardware and kernel drivers for gateway-streamer compositing.
 Each image runs a hardware-free plugin inventory during its build. Run the
 same check in a built image with the matching variant name.
 
+The inventory covers gateway-streamer and playlister. Playlister plays MP4,
+Matroska and MPEG-TS files over HTTP(S) through `uridecodebin`, so the images
+include `souphttpsrc`, `qtdemux`, `matroskademux`, `tsdemux`, `glib-networking`
+for TLS, and the `x265enc` software fallback.
+
 ```sh
 docker run --rm gstreamer-ubuntu:amd64 verify-plugins.sh amd64
 docker run --rm gstreamer-ubuntu:rockchip verify-plugins.sh rockchip

@@ -42,6 +42,20 @@ common_plugins=(
   srtsink
   flvmux
   rtmp2sink
+  # Playlister: HTTP(S) file sources, demuxers and its encoder fallbacks.
+  uridecodebin
+  souphttpsrc
+  qtdemux
+  matroskademux
+  tsdemux
+  avdec_aac
+  input-selector
+  identity
+  audioresample
+  audiotestsrc
+  videotestsrc
+  wpesrc
+  x265enc
 )
 
 case "${variant}" in
@@ -64,3 +78,7 @@ for plugin in "${common_plugins[@]}" "${variant_plugins[@]}"; do
   printf 'Checking %s\n' "${plugin}"
   gst-inspect-1.0 "${plugin}" >/dev/null
 done
+
+# souphttpsrc needs a GIO TLS backend for https:// sources.
+printf 'Checking GIO TLS backend\n'
+compgen -G '/usr/lib/*/gio/modules/libgiognutls.so' >/dev/null
