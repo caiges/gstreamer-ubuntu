@@ -45,6 +45,7 @@ common_plugins=(
   # Playlister: HTTP(S) file sources, demuxers and its encoder fallbacks.
   uridecodebin
   souphttpsrc
+  hlsdemux
   qtdemux
   matroskademux
   tsdemux
