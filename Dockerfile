@@ -230,8 +230,6 @@ RUN curl -fsSL "https://gstreamer.freedesktop.org/src/gst-plugins-ugly/gst-plugi
         -Dauto_features=disabled \
         -Ddoc=disabled \
         -Dgpl=enabled \
-        -Dhls=enabled \
-        -Dhls-crypto=libgcrypt \
         -Dnls=disabled \
         -Dtests=disabled \
         -Dx264=enabled \
