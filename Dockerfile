@@ -137,35 +137,6 @@ RUN curl -fsSL "https://wpewebkit.org/releases/wpebackend-fdo-${WPEBACKEND_FDO_V
     && meson install -C build \
     && rm -rf /tmp/build/*
 
-RUN curl -fsSL "https://wpewebkit.org/releases/wpewebkit-${WPEWEBKIT_VERSION}.tar.xz" \
-    | tar -xJ --strip-components=1 \
-    && cmake -S . -B build -GNinja \
-        -DPORT=WPE \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX=${PREFIX} \
-        -DENABLE_ACCESSIBILITY=OFF \
-        -DENABLE_BUBBLEWRAP_SANDBOX=OFF \
-        -DENABLE_DOCUMENTATION=OFF \
-        -DENABLE_GAMEPAD=OFF \
-        -DENABLE_WPE_PLATFORM=ON \
-        -DENABLE_INTROSPECTION=OFF \
-        -DENABLE_MEDIA_SOURCE=OFF \
-        -DENABLE_MEDIA_STREAM=OFF \
-        -DENABLE_MINIBROWSER=OFF \
-        -DENABLE_SPEECH_SYNTHESIS=OFF \
-        -DENABLE_VIDEO=OFF \
-        -DENABLE_WEB_AUDIO=OFF \
-        -DENABLE_WEB_CODECS=OFF \
-        -DENABLE_WEBGL=ON \
-        -DENABLE_WEBGPU=OFF \
-        -DENABLE_WEBDRIVER=OFF \
-        -DENABLE_WEB_RTC=OFF \
-        -DENABLE_WEBXR=OFF \
-        -DUSE_ATK=OFF \
-        -DUSE_LIBBACKTRACE=OFF \
-    && cmake --build build --target install --parallel "${BUILD_JOBS}" \
-    && rm -rf /tmp/build/*
-
 RUN curl -fsSL "https://gstreamer.freedesktop.org/src/gstreamer/gstreamer-${GSTREAMER_VERSION}.tar.xz" \
     | tar -xJ --strip-components=1 \
     && meson setup build . \
@@ -196,6 +167,71 @@ RUN curl -fsSL "https://gstreamer.freedesktop.org/src/gst-plugins-base/gst-plugi
     && meson install -C build \
     && rm -rf /tmp/build/*
 
+# WebKit media support needs GStreamer core/base and MPEG-TS development libraries.
+# Build the WPE plugins after WebKit below, once its headers are available.
+RUN curl -fsSL "https://gstreamer.freedesktop.org/src/gst-plugins-bad/gst-plugins-bad-${GSTREAMER_VERSION}.tar.xz" \
+    | tar -xJ --strip-components=1 \
+    && meson setup build . \
+        --prefix=${PREFIX} \
+        --libdir=lib \
+        --buildtype=release \
+        -Dauto_features=disabled \
+        -Ddoc=disabled \
+        -Dexamples=disabled \
+        -Dintrospection=disabled \
+        -Dnls=disabled \
+        -Dtests=disabled \
+    && meson compile -C build -j "${BUILD_JOBS}" \
+    && meson install -C build \
+    && rm -rf /tmp/build/*
+
+ARG TARGETARCH
+COPY patches/webkit-gstreamer-gl-include.patch /tmp/webkit-gstreamer-gl-include.patch
+COPY patches/webkit-webaudio-dispatch-lock.patch /tmp/webkit-webaudio-dispatch-lock.patch
+COPY patches/webkit-html-media-loop.patch /tmp/webkit-html-media-loop.patch
+ARG WEBKIT_BUILD_JOBS
+RUN --mount=type=cache,id=webkit-${WPEWEBKIT_VERSION}-${TARGETARCH},target=/tmp/webkit,sharing=locked \
+    cd /tmp/webkit \
+    && if [ ! -f .source-ready ]; then \
+        curl -fsSL "https://wpewebkit.org/releases/wpewebkit-${WPEWEBKIT_VERSION}.tar.xz" \
+            | tar -xJ --strip-components=1 \
+        && touch .source-ready; \
+    fi \
+    && if ! patch -p1 -R --dry-run < /tmp/webkit-gstreamer-gl-include.patch >/dev/null 2>&1; then \
+        patch -p1 < /tmp/webkit-gstreamer-gl-include.patch; \
+    fi \
+    && if ! patch -p1 -R --dry-run < /tmp/webkit-webaudio-dispatch-lock.patch >/dev/null 2>&1; then \
+        patch -p1 < /tmp/webkit-webaudio-dispatch-lock.patch; \
+    fi \
+    && if ! patch -p1 -R --dry-run < /tmp/webkit-html-media-loop.patch >/dev/null 2>&1; then \
+        patch -p1 < /tmp/webkit-html-media-loop.patch; \
+    fi \
+    && cmake -S . -B build -GNinja \
+        -DPORT=WPE \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=${PREFIX} \
+        -DENABLE_ACCESSIBILITY=OFF \
+        -DENABLE_BUBBLEWRAP_SANDBOX=OFF \
+        -DENABLE_DOCUMENTATION=OFF \
+        -DENABLE_GAMEPAD=OFF \
+        -DENABLE_WPE_PLATFORM=ON \
+        -DENABLE_INTROSPECTION=OFF \
+        -DENABLE_MEDIA_SOURCE=OFF \
+        -DENABLE_MEDIA_STREAM=OFF \
+        -DENABLE_MINIBROWSER=OFF \
+        -DENABLE_SPEECH_SYNTHESIS=OFF \
+        -DENABLE_VIDEO=ON \
+        -DENABLE_WEB_AUDIO=ON \
+        -DENABLE_WEB_CODECS=OFF \
+        -DENABLE_WEBGL=ON \
+        -DENABLE_WEBGPU=OFF \
+        -DENABLE_WEBDRIVER=OFF \
+        -DENABLE_WEB_RTC=OFF \
+        -DENABLE_WEBXR=OFF \
+        -DUSE_ATK=OFF \
+        -DUSE_LIBBACKTRACE=OFF \
+    && cmake --build build --target install --parallel "${WEBKIT_BUILD_JOBS:-${BUILD_JOBS}}"
+
 RUN curl -fsSL "https://gstreamer.freedesktop.org/src/gst-plugins-good/gst-plugins-good-${GSTREAMER_VERSION}.tar.xz" \
     | tar -xJ --strip-components=1 \
     && meson setup build . \
@@ -204,12 +240,14 @@ RUN curl -fsSL "https://gstreamer.freedesktop.org/src/gst-plugins-good/gst-plugi
         --buildtype=release \
         -Dauto_features=disabled \
         -Daudioparsers=enabled \
+        -Dautodetect=enabled \
         -Ddoc=disabled \
         -Dexamples=disabled \
         -Dflv=enabled \
         -Disomp4=enabled \
         -Dlaw=enabled \
         -Dmatroska=enabled \
+        -Dwavparse=enabled \
         -Dnls=disabled \
         -Drtp=enabled \
         -Drtpmanager=enabled \
@@ -249,6 +287,16 @@ RUN curl -fsSL "https://gstreamer.freedesktop.org/src/gst-libav/gst-libav-${GSTR
     && meson install -C build \
     && rm -rf /tmp/build/*
 
+COPY scripts/verify-webpage-audio.c /tmp/verify-webpage-audio.c
+RUN cc -O2 -Wall -Wextra -Werror /tmp/verify-webpage-audio.c \
+        $(pkg-config --cflags --libs gstreamer-1.0) -lm \
+        -o "${PREFIX}/bin/verify-webpage-audio"
+
+COPY patches/wpe-shm-owned-frames.patch /tmp/wpe-shm-owned-frames.patch
+COPY patches/wpe-explicit-network-session.patch /tmp/wpe-explicit-network-session.patch
+COPY patches/wpe-enable-autoplay.patch /tmp/wpe-enable-autoplay.patch
+COPY patches/wpe-per-view-audio-context.patch /tmp/wpe-per-view-audio-context.patch
+
 FROM source-build-common AS source-build-amd64
 
 ARG PREFIX
@@ -258,6 +306,10 @@ ARG TARGETARCH
 RUN test "${TARGETARCH}" = amd64 \
     && curl -fsSL "https://gstreamer.freedesktop.org/src/gst-plugins-bad/gst-plugins-bad-${GSTREAMER_VERSION}.tar.xz" \
     | tar -xJ --strip-components=1 \
+    && patch -p1 < /tmp/wpe-shm-owned-frames.patch \
+    && patch -p1 < /tmp/wpe-explicit-network-session.patch \
+    && patch -p1 < /tmp/wpe-enable-autoplay.patch \
+    && patch -p1 < /tmp/wpe-per-view-audio-context.patch \
     && meson setup build . \
         --prefix=${PREFIX} \
         --libdir=lib \
@@ -302,6 +354,10 @@ ARG TARGETARCH
 RUN test "${TARGETARCH}" = arm64 \
     && curl -fsSL "https://gstreamer.freedesktop.org/src/gst-plugins-bad/gst-plugins-bad-${GSTREAMER_VERSION}.tar.xz" \
     | tar -xJ --strip-components=1 \
+    && patch -p1 < /tmp/wpe-shm-owned-frames.patch \
+    && patch -p1 < /tmp/wpe-explicit-network-session.patch \
+    && patch -p1 < /tmp/wpe-enable-autoplay.patch \
+    && patch -p1 < /tmp/wpe-per-view-audio-context.patch \
     && meson setup build . \
         --prefix=${PREFIX} \
         --libdir=lib \
@@ -438,6 +494,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --chmod=0755 scripts/verify-plugins.sh /usr/local/bin/verify-plugins.sh
+COPY --chmod=0755 scripts/verify-webpage-audio.sh /usr/local/bin/verify-webpage-audio.sh
 COPY --chmod=0755 scripts/verify-rockchip-hardware.sh /usr/local/bin/verify-rockchip-hardware.sh
 
 FROM runtime-common AS runtime-rockchip
@@ -456,6 +513,7 @@ COPY --from=source-build-librga ${PREFIX} ${PREFIX}
 
 RUN verify-librga \
     && verify-plugins.sh rockchip \
+    && verify-webpage-audio.sh \
     && rm -rf /root/.cache/gstreamer-1.0
 
 FROM runtime-common AS runtime-amd64
@@ -474,4 +532,5 @@ RUN test "${TARGETARCH}" = amd64 \
 COPY --from=source-build-amd64 ${PREFIX} ${PREFIX}
 
 RUN verify-plugins.sh amd64 \
+    && verify-webpage-audio.sh \
     && rm -rf /root/.cache/gstreamer-1.0

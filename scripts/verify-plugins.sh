@@ -6,6 +6,16 @@ variant=${1:-}
 
 common_plugins=(
   wpevideosrc2
+  wpesrc
+  audiomixer
+  autoaudiosink
+  audioresample
+  audiotestsrc
+  qtdemux
+  matroskademux
+  wavparse
+  souphttpsrc
+  tsdemux
   capsfilter
   queue
   queue2
@@ -44,18 +54,11 @@ common_plugins=(
   rtmp2sink
   # Playlister: HTTP(S) file sources, demuxers and its encoder fallbacks.
   uridecodebin
-  souphttpsrc
   hlsdemux
-  qtdemux
-  matroskademux
-  tsdemux
   avdec_aac
   input-selector
   identity
-  audioresample
-  audiotestsrc
   videotestsrc
-  wpesrc
   x265enc
 )
 

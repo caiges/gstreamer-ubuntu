@@ -139,3 +139,78 @@ names, pull request tags, and `sha-` tags. The Rockchip image adds
 
 The workflow pushes images to `ghcr.io/caiges/gstreamer-ubuntu` for the default
 branch and version tags.
+
+## Verify webpage audio
+
+Webpage sources use `wpesrc` to capture video and audio. WebKit is built with
+`ENABLE_VIDEO=ON` and `ENABLE_WEB_AUDIO=ON`; the video-only `wpevideosrc2`
+plugin does not establish audio capability. GStreamer core, base, and MPEG-TS
+libraries are built before WebKit so its media support links to the same
+runtime libraries used by the capture plugins.
+
+The runtime includes MP4, Matroska, WAV, MPEG-TS, and HTTP input support for
+embedded media and playlist clips. Media Source Extensions and WebRTC remain
+disabled.
+
+Both native image builds run the browser audio smoke tests using software
+rendering, so CI fails if the browser cannot produce audio. Repeat them in the
+actual runtime image:
+
+```sh
+docker run --rm gstreamer-ubuntu:amd64 verify-webpage-audio.sh
+```
+
+Each test renders two simultaneous pages and requires actual video buffers and
+the expected distinct 440/660 Hz tone from each `wpesrc`, then tears them down
+and repeats the cycle to verify recreation. The `media` test plays an HTML audio
+element; `webaudio` uses an `AudioContext` oscillator. The `video` test generates short moving MP4
+clips and requires changing captured frames plus continuing tones over multiple
+loops. A runtime with media compiled out fails even if `gst-inspect-1.0 wpesrc`
+succeeds. These tests require a working EGL/Mesa
+rendering environment; they do not need a sound device or network access.
+
+A consuming Playlister image can select a locally built runtime with
+`--build-arg GSTREAMER_RUNTIME_IMAGE=gstreamer-ubuntu:webpage-audio`. Publish and
+qualify a runtime release with these capabilities before changing production
+consumers away from their current runtime pin.
+
+The WebKit source/build directory uses a locked BuildKit cache mount keyed by
+version and architecture. Failed compiler steps retain completed objects for
+the next attempt. `WEBKIT_BUILD_JOBS` overrides parallelism for only WebKit
+(defaulting to `BUILD_JOBS`), so tuning it preserves cached dependency layers.
+The WebKit 2.50.2 GL include patch makes its media code include
+the GstGL declarations it uses rather than depending on unified-source order.
+
+The legacy `wpesrc` shared-memory capture path copies exported pixels on the
+WPE thread before releasing the Wayland buffer. This keeps queued frames valid
+when a browser process dies; the existing termination error can then reach the
+consumer's recovery handler instead of crashing while copying an unmapped frame.
+The EGL path is unchanged.
+
+Each WPE 2 legacy capture view owns an ephemeral network session created and
+released on the WPE thread. Cookies, cache and local storage are isolated per
+view and disappear when that renderer is destroyed; they are not shared across
+playlist items or persisted across restarts. This also avoids the global default
+session's wrong-thread destruction during normal process exit.
+
+The legacy `wpevideosrc` child exposes `enable-autoplay` (default `false`).
+Set it before PAUSED to opt into audible HTML media and Web Audio autoplay;
+the choice is applied when constructing the browser view. Existing overlay
+consumers retain WebKit's default muted-only autoplay policy. The runtime audio
+smoke tests explicitly opt in on both captured pages.
+
+Each WPE 2 legacy capture view also owns its WebKit context. Audio messages are
+context-wide, so sharing a context sent a second page's audio to the first
+source. Separate contexts preserve per-source routing when multiple webpages
+are active or preloaded.
+
+A pinned WebKit WebAudio patch releases the render-dispatch callback lock before
+pushing samples or waiting for rendering to finish. Holding it during audio
+backpressure blocked `AudioContext.resume()` on the browser main thread, which
+also prevented the capture sink's acknowledgement from being delivered.
+
+HTML media uses ordinary flushing seeks when looping. This avoids the pinned
+WebKit segment-seek stalls in short audio and video loops. Loop boundaries may
+briefly buffer; seamless or gapless looping is not promised. The audio smoke
+uses one-second looped WAV files and requires the second view to keep producing
+audio and video after the first view is removed.
