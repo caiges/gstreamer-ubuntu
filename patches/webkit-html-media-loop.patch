@@ -1,0 +1,33 @@
+--- a/Source/WebCore/platform/graphics/gstreamer/MediaPlayerPrivateGStreamer.cpp
++++ b/Source/WebCore/platform/graphics/gstreamer/MediaPlayerPrivateGStreamer.cpp
+@@ -484,7 +484,7 @@
+ #endif
+         RefPtr player = m_player.get();
+         if (player) {
+-            if (player->isLooping()) {
++            if (player->isLooping() && isSeamlessSeekingEnabled()) {
+                 GST_DEBUG_OBJECT(pipeline(), "Scheduling initial SEGMENT seek");
+                 doSeek(SeekTarget { playbackPosition() }, m_playbackRate, true);
+             } else
+@@ -671,8 +671,8 @@
+         return;
+     }
+ 
+-    if (player->isLooping()) {
+-        if (isSeamlessSeekingEnabled() && state > GST_STATE_PAUSED) {
++    if (player->isLooping() && isSeamlessSeekingEnabled()) {
++        if (state > GST_STATE_PAUSED) {
+             // Segment seeking is synchronous, the pipeline state has not changed, no flush is done.
+             GST_DEBUG_OBJECT(pipeline(), "Performing segment seek");
+             m_isSeeking = true;
+@@ -3797,9 +3797,7 @@
+ 
+ void MediaPlayerPrivateGStreamer::ensureSeekFlags()
+ {
+-    RefPtr player = m_player.get();
+-    auto flag = (player && player->isLooping()) ? GST_SEEK_FLAG_SEGMENT : GST_SEEK_FLAG_FLUSH;
+-    m_seekFlags = static_cast<GstSeekFlags>(flag | GST_SEEK_FLAG_ACCURATE);
++    m_seekFlags = static_cast<GstSeekFlags>(GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_ACCURATE);
+ }
+ 
+ void MediaPlayerPrivateGStreamer::triggerRepaint(GRefPtr<GstSample>&& sample)

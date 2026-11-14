@@ -1,0 +1,36 @@
+--- a/Source/WebCore/platform/audio/gstreamer/WebKitWebAudioSourceGStreamer.cpp
++++ b/Source/WebCore/platform/audio/gstreamer/WebKitWebAudioSourceGStreamer.cpp
+@@ -387,17 +387,23 @@
+     if (!priv->dispatchToRenderThreadLock.tryLock())
+         return;
+ 
+-    Locker locker { AdoptLock, priv->dispatchToRenderThreadLock };
+-
+-    if (!priv->dispatchToRenderThreadFunction)
++    bool renderDirectly;
++    {
++        Locker locker { AdoptLock, priv->dispatchToRenderThreadLock };
++        renderDirectly = !priv->dispatchToRenderThreadFunction;
++        if (!renderDirectly) {
++            priv->dispatchToRenderThreadFunction([buffer = WTFMove(buffer), protectedThis = GRefPtr<GstElement>(GST_ELEMENT_CAST(src))]() mutable {
++                if (!protectedThis)
++                    return;
++                webKitWebAudioSrcRenderAndPushFrames(protectedThis, WTFMove(buffer));
++            });
++        }
++    }
++
++    // Pushing frames can block on the sink; do not hold the callback lock that
++    // the main thread needs when resuming the AudioContext.
++    if (renderDirectly)
+         webKitWebAudioSrcRenderAndPushFrames(GRefPtr<GstElement>(GST_ELEMENT_CAST(src)), WTFMove(buffer));
+-    else {
+-        priv->dispatchToRenderThreadFunction([buffer = WTFMove(buffer), protectedThis = GRefPtr<GstElement>(GST_ELEMENT_CAST(src))]() mutable {
+-            if (!protectedThis)
+-                return;
+-            webKitWebAudioSrcRenderAndPushFrames(protectedThis, WTFMove(buffer));
+-        });
+-    }
+ 
+     {
+         Locker locker { priv->dispatchLock };

@@ -6,6 +6,16 @@ variant=${1:-}
 
 common_plugins=(
   wpevideosrc2
+  wpesrc
+  audiomixer
+  autoaudiosink
+  audioresample
+  audiotestsrc
+  qtdemux
+  matroskademux
+  wavparse
+  souphttpsrc
+  tsdemux
   capsfilter
   queue
   queue2

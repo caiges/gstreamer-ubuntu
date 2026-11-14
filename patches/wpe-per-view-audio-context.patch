@@ -1,0 +1,27 @@
+--- a/ext/wpe/gstwpethreadedview.cpp
++++ b/ext/wpe/gstwpethreadedview.cpp
+@@ -360,17 +360,19 @@
+ 
+     GstWPEThreadedView* view = nullptr;
+     dispatch([&]() mutable {
++#if USE_WPE2
++        auto* webContext = WEBKIT_WEB_CONTEXT(g_object_new(WEBKIT_TYPE_WEB_CONTEXT, nullptr));
++        view = new GstWPEThreadedView(webContext, src, context, display, width, height);
++        g_object_unref(webContext);
++#else
+         if (!glib.web_context) {
+-#if USE_WPE2
+-            glib.web_context = WEBKIT_WEB_CONTEXT(g_object_new(WEBKIT_TYPE_WEB_CONTEXT, nullptr));
+-#else
+             auto *manager = webkit_website_data_manager_new(NULL);
+             glib.web_context =
+                 webkit_web_context_new_with_website_data_manager(manager);
+             g_object_unref(manager);
++        }
++        view = new GstWPEThreadedView(glib.web_context, src, context, display, width, height);
+ #endif
+-        }
+-        view = new GstWPEThreadedView(glib.web_context, src, context, display, width, height);
+     });
+ 
+     if (view && view->hasUri()) {

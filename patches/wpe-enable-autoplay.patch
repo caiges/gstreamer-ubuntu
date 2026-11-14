@@ -1,0 +1,95 @@
+--- a/ext/wpe/gstwpevideosrc.cpp
++++ b/ext/wpe/gstwpevideosrc.cpp
+@@ -110,7 +110,8 @@
+ {
+   PROP_0,
+   PROP_LOCATION,
+-  PROP_DRAW_BACKGROUND
++  PROP_DRAW_BACKGROUND,
++  PROP_ENABLE_AUTOPLAY
+ };
+ 
+ enum
+@@ -129,6 +130,7 @@
+   /* properties */
+   gchar *location;
+   gboolean draw_background;
++  gboolean enable_autoplay;
+ 
+   GBytes *bytes;
+   gboolean gl_enabled;
+@@ -562,6 +564,16 @@
+       }
+       break;
+     }
++    case PROP_ENABLE_AUTOPLAY:
++      GST_OBJECT_LOCK (src);
++      if (GST_STATE (src) > GST_STATE_READY) {
++        GST_OBJECT_UNLOCK (src);
++        GST_WARNING_OBJECT (src, "enable-autoplay must be set before PAUSED");
++        return;
++      }
++      src->enable_autoplay = g_value_get_boolean (value);
++      GST_OBJECT_UNLOCK (src);
++      break;
+     case PROP_DRAW_BACKGROUND:
+       gst_wpe_video_src_set_draw_background (src, g_value_get_boolean (value));
+       break;
+@@ -580,6 +592,11 @@
+     case PROP_LOCATION:
+       GST_OBJECT_LOCK (src);
+       g_value_set_string (value, src->location);
++      GST_OBJECT_UNLOCK (src);
++      break;
++    case PROP_ENABLE_AUTOPLAY:
++      GST_OBJECT_LOCK (src);
++      g_value_set_boolean (value, src->enable_autoplay);
+       GST_OBJECT_UNLOCK (src);
+       break;
+     case PROP_DRAW_BACKGROUND:
+@@ -860,6 +877,7 @@
+ gst_wpe_video_src_init (GstWpeVideoSrc * src)
+ {
+   src->draw_background = DEFAULT_DRAW_BACKGROUND;
++  src->enable_autoplay = FALSE;
+   src->location = g_strdup (DEFAULT_LOCATION);
+ 
+   gst_base_src_set_live (GST_BASE_SRC_CAST (src), TRUE);
+@@ -903,6 +921,11 @@
+       g_param_spec_boolean ("draw-background", "Draws the background",
+           "Whether to draw the WebView background", DEFAULT_DRAW_BACKGROUND,
+           (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
++
++  g_object_class_install_property (gobject_class, PROP_ENABLE_AUTOPLAY,
++      g_param_spec_boolean ("enable-autoplay", "Enable autoplay",
++          "Allow audible media autoplay without a user gesture", FALSE,
++          (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | GST_PARAM_MUTABLE_READY)));
+ 
+   gst_element_class_set_static_metadata (gstelement_class,
+       "WPE source", "Source/Video",
+--- a/ext/wpe/gstwpethreadedview.cpp
++++ b/ext/wpe/gstwpethreadedview.cpp
+@@ -509,8 +509,14 @@
+ #if USE_WPE2
+     auto* networkSession = webkit_network_session_new_ephemeral();
+ #endif
++    gboolean enableAutoplay = FALSE;
++    g_object_get(src, "enable-autoplay", &enableAutoplay, nullptr);
++    auto* websitePolicies = webkit_website_policies_new_with_policies("autoplay",
++        enableAutoplay ? WEBKIT_AUTOPLAY_ALLOW : WEBKIT_AUTOPLAY_ALLOW_WITHOUT_SOUND,
++        nullptr);
+     webkit.view = WEBKIT_WEB_VIEW(g_object_new(WEBKIT_TYPE_WEB_VIEW,
+         "web-context", web_context,
++        "website-policies", websitePolicies,
+         "backend", viewBackend,
+ #if USE_WPE2
+         "network-session", networkSession,
+@@ -519,6 +525,8 @@
+ #if USE_WPE2
+     g_object_unref(networkSession);
+ #endif
++
++    g_object_unref(websitePolicies);
+ 
+     g_signal_connect(webkit.view, "load-failed", G_CALLBACK(s_loadFailed), src);
+     g_signal_connect(webkit.view, "load-failed-with-tls-errors", G_CALLBACK(s_loadFailedWithTLSErrors), src);
