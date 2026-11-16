@@ -239,11 +239,13 @@ RUN curl -fsSL "https://gstreamer.freedesktop.org/src/gst-plugins-good/gst-plugi
         --libdir=lib \
         --buildtype=release \
         -Dauto_features=disabled \
+        -Dadaptivedemux2=enabled \
         -Daudioparsers=enabled \
         -Dautodetect=enabled \
         -Ddoc=disabled \
         -Dexamples=disabled \
         -Dflv=enabled \
+        -Dhls-crypto=libgcrypt \
         -Disomp4=enabled \
         -Dlaw=enabled \
         -Dmatroska=enabled \
