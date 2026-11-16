@@ -86,7 +86,12 @@ same check in a built image with the matching variant name.
 The inventory covers gateway-streamer and playlister. Playlister plays MP4,
 Matroska and MPEG-TS files over HTTP(S) through `uridecodebin`, so the images
 include `souphttpsrc`, `qtdemux`, `matroskademux`, `tsdemux`, `glib-networking`
-for TLS, and the `x265enc` software fallback.
+for TLS, and the `x265enc` software fallback. Live HLS uses `uridecodebin3`
+and `hlsdemux2` from the `adaptivedemux2` plugin for adaptive rendition
+selection. Both image variants explicitly build
+that plugin with libgcrypt support and verify the decoder and demuxer are
+available. The legacy `uridecodebin` and `hlsdemux` remain available for other
+consumers.
 
 ```sh
 docker run --rm gstreamer-ubuntu:amd64 verify-plugins.sh amd64

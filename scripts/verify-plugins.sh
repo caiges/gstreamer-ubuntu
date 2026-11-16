@@ -54,7 +54,12 @@ common_plugins=(
   rtmp2sink
   # Playlister: HTTP(S) file sources, demuxers and its encoder fallbacks.
   uridecodebin
+  uridecodebin3
   hlsdemux
+  hlsdemux2
+  # Playlister: live HLS and webpage capture pipelines bridge through these.
+  appsrc
+  appsink
   avdec_aac
   input-selector
   identity
